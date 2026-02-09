@@ -27,12 +27,12 @@
 **Суть принципа в рамках работы:** каждый модуль выполняет одну простую задачу и не содержит скрытой логики, не относящейся к его ответственности.
 
 **Где применён:**
-- `backend/app/api/forecast_routes.py` — HTTP-эндпоинт делает только:
+- forecast_routes.py — HTTP-эндпоинт делает только:
   - валидацию входных данных через DTO,
   - вызов сервиса,
   - преобразование результата в ответ.
-- `backend/app/services/forecast_service.py` — содержит только бизнес-алгоритм сценария “построить прогноз” (получить ряд → построить прогноз → посчитать метрики → сохранить эксперимент).
-- `client/api_client.py` — отдельный клиент для запросов к API (UI не содержит сетевой логики).
+- forecast_service.py — содержит только бизнес-алгоритм сценария “построить прогноз” (получить ряд → построить прогноз → посчитать метрики → сохранить эксперимент).
+- api_client.py — отдельный клиент для запросов к API (UI не содержит сетевой логики).
 
 **Почему это KISS:**
 - Точка входа (API) не знает деталей: где хранится ряд, как устроена модель и как сохраняется эксперимент — поэтому код остаётся простым и стабильным.
@@ -40,7 +40,7 @@
 - UI остаётся простым: ввод → кнопка → результат/ошибка.
 
 ```python
-# backend/app/api/forecast_routes.py
+# forecast_routes.py
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, PositiveInt
 
@@ -82,12 +82,12 @@ def build_forecast(
 **Суть принципа в рамках работы:** не добавлять функциональность «на будущее», пока она не требуется выбранным сценарием лабораторной работы.
 
 **Где применён:**
-- `forecast_service.py` — реализован минимально необходимый pipeline:
+- forecast_service.py — реализован минимально необходимый pipeline:
   - получение ряда,
   - построение прогноза одной базовой моделью,
   - расчёт 1–2 метрик,
   - сохранение результата эксперимента.
-- `client/main_window.py` — минимум UI для демонстрации сценария.
+- main_window.py — минимум UI для демонстрации сценария.
 
 **Что сознательно НЕ реализовано (обоснованный отказ):**
 - Очереди задач и фоновые воркеры (Celery/RQ), прогресс-бар по WebSocket.
@@ -98,7 +98,7 @@ def build_forecast(
 **Почему это YAGNI:** такие функции увеличивают сложность и время реализации, но не дают преимуществ для выполнения ЛР и демонстрации выбранного use case.
 
 ```python
-# backend/app/services/forecast_service.py (фрагмент)
+# forecast_service.py (фрагмент)
 class ForecastService:
     """YAGNI: учебная версия строит прогноз одной моделью и считает базовую метрику."""
     def build_forecast(self, dataset_id: int, horizon: int):
@@ -119,16 +119,16 @@ class ForecastService:
 **Суть принципа в рамках работы:** общая логика сценария не дублируется между слоями и точками входа; алгоритмы вынесены в единые модули.
 
 **Где применён:**
-- `ForecastService.build_forecast()` — единый алгоритм построения прогноза (API не повторяет его шаги).
-- `metrics.py` (или `MetricsCalculator`) — метрики считаются в одном месте, а не копируются в сервисах.
-- `ApiClient` на фронте — один модуль для запросов, вместо копирования `requests.post(...)` в разных окнах.
+- ForecastService.build_forecast() — единый алгоритм построения прогноза (API не повторяет его шаги).
+- metrics.py — метрики считаются в одном месте, а не копируются в сервисах.
+- ApiClient на фронте — один модуль для запросов, вместо копирования requests.post(...) в разных окнах.
 
 **Почему это DRY:**
-- При добавлении другого эндпоинта (например, `/forecast/preview` или `/forecast/debug`) можно переиспользовать один и тот же сервис/метрики без копирования.
+- При добавлении другого эндпоинта (например, preview или debug) можно переиспользовать один и тот же сервис/метрики без копирования.
 - Изменение формулы метрики или формата ответа делается в одном месте.
 
 ```python
-# backend/app/services/metrics.py
+# metrics.py
 class MetricsCalculator:
     """DRY: метрики сосредоточены в одном модуле."""
     @staticmethod
@@ -146,14 +146,14 @@ class MetricsCalculator:
 #### S — Single Responsibility Principle (SRP)
 
 **Где применён:**
-- `ForecastRoutes` — только HTTP-слой (приём/ответ).
-- `ForecastService` — только бизнес-операция “построить прогноз”.
-- `TimeSeriesRepository` — получение ряда.
-- `ExperimentRepository` — сохранение эксперимента/метрик/прогноза.
-- `ApiClient` — только сеть на фронте.
+- ForecastRoutes — только HTTP-слой (приём/ответ).
+- ForecastService — только бизнес-операция “построить прогноз”.
+- TimeSeriesRepository — получение ряда.
+- ExperimentRepository — сохранение эксперимента/метрик/прогноза.
+- ApiClient — только сеть на фронте.
 
 ```python
-# backend/app/repositories/time_series_repository.py
+# time_series_repository.py
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -172,11 +172,11 @@ class TimeSeriesRepository(ABC):
 #### O — Open/Closed Principle (OCP)
 
 **Где применён:**
-- Добавление новой модели прогнозирования происходит через новую реализацию интерфейса `Forecaster`, без изменения `ForecastService` (он работает с абстракцией).
-- Расширение — через `ModelFactory`.
+- Добавление новой модели прогнозирования происходит через новую реализацию интерфейса Forecaster, без изменения ForecastService (он работает с абстракцией).
+- Расширение — через ModelFactory.
 
 ```python
-# backend/app/services/model_factory.py
+# model_factory.py
 from typing import Protocol
 
 class Forecaster(Protocol):
@@ -200,9 +200,9 @@ class ModelFactory:
 #### L — Liskov Substitution Principle (LSP)
 
 **Где применён:**
-- `ForecastService` не зависит от конкретного источника данных.  
-  Любая реализация `TimeSeriesRepository` (SQL/CSV/InMemory) взаимозаменяема при соблюдении контракта.
-- Пример: в тестах можно подставить `InMemoryTimeSeriesRepository`, и сервис продолжит работать корректно.
+- ForecastService не зависит от конкретного источника данных.  
+  Любая реализация TimeSeriesRepository (SQL/CSV/InMemory) взаимозаменяема при соблюдении контракта.
+- Пример: в тестах можно подставить InMemoryTimeSeriesRepository, и сервис продолжит работать корректно.
 
 #### I — Interface Segregation Principle (ISP)
 
@@ -213,11 +213,11 @@ class ModelFactory:
 #### D — Dependency Inversion Principle (DIP)
 
 **Где применён:**
-- Высокоуровневый модуль `ForecastService` зависит от абстракций (`TimeSeriesRepository`, `ExperimentRepository`, `Forecaster`), а не от SQLAlchemy/requests.
+- Высокоуровневый модуль ForecastService зависит от абстракций (TimeSeriesRepository, ExperimentRepository, Forecaster), а не от SQLAlchemy/requests.
 - Конкретные реализации создаются в инфраструктурном слое (DI-сборка).
 
 ```python
-# backend/app/services/di.py
+# di.py
 from ..services.forecast_service import ForecastService
 from ..services.model_factory import ModelFactory
 from ..services.metrics import MetricsCalculator
