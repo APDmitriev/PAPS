@@ -240,7 +240,7 @@ def get_forecast_service() -> ForecastService:
 
 
 
-## 5) Повышенная сложность (2 балла): BDUF / SoC / MVP / PoC
+## 5) BDUF / SoC / MVP / PoC
 
 ### BDUF — Big Design Up Front
 
