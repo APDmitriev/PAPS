@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:16
+    container_name: timeseries_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: timeseries_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - '5433:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d timeseries_db']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: timeseries_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/timeseries_db
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '8000:8000'
+
+  frontend:
+    build: ./frontend
+    container_name: timeseries_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - '8080:80'
+
+  integration-tests:
+    image: python:3.11-slim
+    depends_on:
+      - backend
+    working_dir: /tests
+    volumes:
+      - ./backend/tests:/tests
+    command: >
+      sh -c "pip install --no-cache-dir pytest requests && pytest -v"
+    profiles:
+      - test
+
+volumes:
+  postgres_data:
